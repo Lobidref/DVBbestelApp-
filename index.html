@@ -178,6 +178,14 @@
   }
   .inline-color { display:flex; gap:10px; align-items:center; }
   .inline-color .qty { opacity:1; }
+  .rubio-block { margin-bottom: 8px; }
+  .rubio-row { display:flex; gap:10px; align-items:center; }
+  .rubio-row select { flex:1; min-width:0; }
+  .rubio-rm { flex:none; width:46px; height:46px; border:1px solid var(--line); background:#fff; color:var(--err); border-radius:4px; font-size:1.4rem; line-height:1; cursor:pointer; }
+  .rubio-rm:hover { border-color:var(--err); }
+  .rubio-anders { margin-top:8px; }
+  .rubio-add { margin-top:4px; background:var(--wood-bg); border:1px solid var(--wood-soft); color:var(--wood); border-radius:6px; padding:11px 16px; font-family:'Fjalla One',sans-serif; letter-spacing:1px; text-transform:uppercase; font-size:0.78rem; cursor:pointer; }
+  .rubio-add:hover { background:#EBDDCB; }
 
   /* ---------- Scanner ---------- */
   .scan-section { margin-top: 30px; }
@@ -190,8 +198,9 @@
   }
   .scan-btn:hover { background: var(--wood-bg); }
   .scan-btn svg { width: 22px; height: 22px; color: var(--wood); }
-  #reader { margin-top: 14px; border-radius: 8px; overflow: hidden; }
-  #reader:empty { display:none; }
+  #reader { display:none; margin-top: 14px; border-radius: 10px; overflow: hidden; background:#000; }
+  #reader.live { display:block; min-height: 220px; }
+  #reader video { width:100% !important; height:auto !important; display:block; }
   .scan-note { font-size: 0.78rem; color: var(--ink-soft); margin-top: 8px; }
   .scan-form {
     display:none; margin-top: 12px; background: var(--wood-bg);
@@ -322,7 +331,7 @@
 
 <script>
 /* ====== Ontvanger ====== */
-var ONTVANGER = "info@ferdibol.nl";
+var ONTVANGER = "ferdi@brasseriemirell.nl";
 
 /* ====== Bestellijst data ====== */
 var SCHROEF_LENGTES = {
@@ -382,15 +391,20 @@ function maakItem(naam, eenheid, key){
     '<div class="label"><span class="name">'+naam+'</span>'+(eenheid?'<span class="unit">'+eenheid+'</span>':'')+'</div>' +
     '<input type="number" class="qty" inputmode="numeric" min="1" placeholder="#">';
   var qty = row.querySelector(".qty");
-  function toggle(on){ row.classList.toggle("on", on); }
+  function toggle(on){
+    row.classList.toggle("on", on);
+    if (on){ var v=parseInt(qty.value,10); if(isNaN(v)||v<1) qty.value="1"; }
+    else { qty.value=""; }
+  }
   row.addEventListener("click", function(e){
     if (e.target === qty) return;
     var on = !row.classList.contains("on");
     toggle(on);
-    if (on) { try{ qty.focus(); }catch(_){} }
+    if (on) { try{ qty.focus(); qty.select(); }catch(_){} }
   });
   qty.addEventListener("click", function(e){ e.stopPropagation(); });
-  qty.addEventListener("input", function(){ if (qty.value) toggle(true); });
+  qty.addEventListener("input", function(){ if (parseInt(qty.value,10)>=1) row.classList.add("on"); });
+  qty.addEventListener("blur", function(){ if (row.classList.contains("on")){ var v=parseInt(qty.value,10); if(isNaN(v)||v<1) qty.value="1"; } });
   ITEM_INDEX.push({ naam: naam, eenheid: eenheid||"", get: function(){
     if (!row.classList.contains("on")) return null;
     var v = parseInt(qty.value,10);
@@ -409,10 +423,12 @@ function maakChips(parent, labels, suffix, groep){
       if (e.target === cq) return;
       var on = !chip.classList.contains("on");
       chip.classList.toggle("on", on);
-      if (on) setTimeout(function(){ try{cq.focus();}catch(_){} },10);
+      if (on){ if(!(parseInt(cq.value,10)>=1)) cq.value="1"; setTimeout(function(){ try{cq.focus();cq.select();}catch(_){} },10); }
+      else { cq.value=""; }
     });
     cq.addEventListener("click", function(e){ e.stopPropagation(); });
-    cq.addEventListener("input", function(){ if(cq.value) chip.classList.add("on"); });
+    cq.addEventListener("input", function(){ if(parseInt(cq.value,10)>=1) chip.classList.add("on"); });
+    cq.addEventListener("blur", function(){ if(chip.classList.contains("on")){ if(!(parseInt(cq.value,10)>=1)) cq.value="1"; } });
     wrap.appendChild(chip);
     groep.push({ label: l+(suffix||''), get: function(){
       if(!chip.classList.contains("on")) return null;
@@ -422,10 +438,42 @@ function maakChips(parent, labels, suffix, groep){
   parent.appendChild(wrap);
 }
 
+function addRubioRow(){
+  var block=document.createElement("div"); block.className="rubio-block";
+  var row=document.createElement("div"); row.className="rubio-row";
+  var sel=document.createElement("select");
+  sel.innerHTML='<option value="" selected disabled hidden>Kies een kleur…</option>'+
+    RUBIO_KLEUREN.map(function(k){return '<option value="'+k+'">'+k+'</option>';}).join('')+
+    '<option value="__anders">Anders, namelijk…</option>';
+  var rq=document.createElement("input"); rq.type="number"; rq.className="qty"; rq.min="1"; rq.placeholder="#"; rq.inputMode="numeric"; rq.style.opacity="1";
+  var rm=document.createElement("button"); rm.type="button"; rm.className="rubio-rm"; rm.innerHTML="&times;"; rm.setAttribute("aria-label","Verwijder kleur");
+  var anders=document.createElement("input"); anders.type="text"; anders.className="rubio-anders"; anders.placeholder="Welke kleur?"; anders.style.display="none";
+  row.appendChild(sel); row.appendChild(rq); row.appendChild(rm);
+  block.appendChild(row); block.appendChild(anders);
+  sel.addEventListener("change", function(){
+    anders.style.display = sel.value==="__anders" ? "block":"none";
+    if (sel.value){ if(!(parseInt(rq.value,10)>=1)) rq.value="1"; }
+  });
+  rq.addEventListener("blur", function(){ if(sel.value){ if(!(parseInt(rq.value,10)>=1)) rq.value="1"; } });
+  var getter=function(){
+    var kleur = sel.value==="__anders" ? anders.value.trim() : sel.value;
+    if(!kleur || kleur==="__anders") return null;
+    var v=parseInt(rq.value,10);
+    return { kleur:kleur, aantal:(!isNaN(v)&&v>0)?v:null };
+  };
+  rm.addEventListener("click", function(){
+    block.remove();
+    var i=RUBIO_ROWS.indexOf(getter); if(i>-1) RUBIO_ROWS.splice(i,1);
+    if(RUBIO_ROWS.length===0) addRubioRow();
+  });
+  RUBIO_ROWS.push(getter);
+  rubioWrap.appendChild(block);
+}
+
 var SCHROEF_GROEP = [];   // {dia, items:[...]}
 var SCHUUR_MACHINE = [];
 var SCHUUR_HAND = [];
-var RUBIO_GET = null;
+var RUBIO_ROWS = []; var rubioWrap = null;
 
 CATEGORIEEN.forEach(function(cat){
   var sec = document.createElement("div"); sec.className="cat";
@@ -457,23 +505,13 @@ CATEGORIEEN.forEach(function(cat){
   }
 
   if (cat.rubio){
-    var rf=document.createElement("div"); rf.className="subcat"; rf.textContent="Monocoat olie"; sec.appendChild(rf);
-    var ic=document.createElement("div"); ic.className="inline-color";
-    var sel=document.createElement("select");
-    sel.innerHTML='<option value="" selected disabled hidden>Kies een kleur…</option>'+
-      RUBIO_KLEUREN.map(function(k){return '<option value="'+k+'">'+k+'</option>';}).join('')+
-      '<option value="__anders">Anders, namelijk…</option>';
-    var rq=document.createElement("input"); rq.type="number"; rq.className="qty"; rq.min="1"; rq.placeholder="#"; rq.inputMode="numeric";
-    ic.appendChild(sel); ic.appendChild(rq); sec.appendChild(ic);
-    var rAnders=document.createElement("input"); rAnders.type="text"; rAnders.placeholder="Welke kleur?"; rAnders.style.display="none"; rAnders.style.marginTop="10px";
-    sec.appendChild(rAnders);
-    sel.addEventListener("change", function(){ rAnders.style.display = sel.value==="__anders" ? "block":"none"; });
-    RUBIO_GET = function(){
-      var kleur = sel.value==="__anders" ? rAnders.value.trim() : sel.value;
-      if(!kleur || kleur==="__anders") return null;
-      var v=parseInt(rq.value,10);
-      return { kleur: kleur, aantal:(!isNaN(v)&&v>0)?v:null };
-    };
+    var rf=document.createElement("div"); rf.className="subcat"; rf.textContent="Monocoat olie — kies kleur(en)"; sec.appendChild(rf);
+    rubioWrap=document.createElement("div"); sec.appendChild(rubioWrap);
+    var addBtn=document.createElement("button"); addBtn.type="button"; addBtn.className="rubio-add";
+    addBtn.innerHTML="+ Nog een kleur toevoegen";
+    addBtn.addEventListener("click", function(){ addRubioRow(); });
+    sec.appendChild(addBtn);
+    addRubioRow();
   }
 
   if (cat.items){
@@ -497,39 +535,53 @@ var scanQty=document.getElementById("scanQty");
 var scanSave=document.getElementById("scanSave");
 var scannedList=document.getElementById("scannedList");
 var scanNote=document.getElementById("scanNote");
+var SCAN_NOTE_DEFAULT=scanNote.textContent;
 var html5qr=null, scanning=false, lastCode="";
 
-function stopScan(){
-  if (html5qr && scanning){ html5qr.stop().then(function(){ readerEl.innerHTML=""; }).catch(function(){ readerEl.innerHTML=""; }); }
-  scanning=false; scanBtn.textContent="";
+function scanBtnLabel(){
   scanBtn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3M21 14v.01M21 21v-3M17 21h.01M14 21h.01"/></svg> Scan een barcode';
+}
+function stopScan(){
+  if (html5qr && scanning){ html5qr.stop().then(function(){ readerEl.innerHTML=""; readerEl.classList.remove("live"); }).catch(function(){ readerEl.innerHTML=""; readerEl.classList.remove("live"); }); }
+  else { readerEl.classList.remove("live"); }
+  scanning=false; scanBtnLabel();
 }
 function onScan(code){
   lastCode = code;
   stopScan();
+  if (navigator.vibrate){ try{ navigator.vibrate(60); }catch(_){} }
   scanCode.textContent = "Code: " + code;
+  scanNote.textContent = SCAN_NOTE_DEFAULT; scanNote.style.color="";
   var m = loadMap();
   scanName.value = m[code] || "";
-  scanQty.value = "";
+  scanQty.value = "1";
   scanForm.classList.add("show");
   setTimeout(function(){ (m[code]? scanQty : scanName).focus(); }, 50);
+}
+function barcodeFormats(){
+  if (typeof Html5QrcodeSupportedFormats === "undefined") return undefined;
+  var F=Html5QrcodeSupportedFormats;
+  return [F.EAN_13,F.EAN_8,F.UPC_A,F.UPC_E,F.UPC_EAN_EXTENSION,F.CODE_128,F.CODE_39,F.CODE_93,F.ITF,F.CODABAR,F.QR_CODE];
 }
 scanBtn.addEventListener("click", function(){
   if (typeof Html5Qrcode === "undefined"){ scanNote.textContent="Scanner kon niet laden (geen internet?). Gebruik het opmerkingenveld."; scanNote.style.color="var(--err)"; return; }
   if (scanning){ stopScan(); return; }
   if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)){
-    scanNote.textContent="Camera niet beschikbaar. Open de app via een https-link om te kunnen scannen."; scanNote.style.color="var(--err)"; return;
+    scanNote.textContent="Camera niet beschikbaar. Open de app via een https-link (de Vercel-link) om te kunnen scannen."; scanNote.style.color="var(--err)"; return;
   }
-  html5qr = html5qr || new Html5Qrcode("reader");
+  if (!html5qr){ try{ html5qr=new Html5Qrcode("reader",{ formatsToSupport:barcodeFormats(), verbose:false }); }catch(_){ html5qr=new Html5Qrcode("reader"); } }
   scanning = true;
+  scanForm.classList.remove("show");
+  readerEl.classList.add("live");
   scanBtn.innerHTML = "✕ Stop scannen";
+  scanNote.textContent = "Richt de camera op de streepjescode…"; scanNote.style.color="";
   html5qr.start({ facingMode: "environment" },
-    { fps: 10, qrbox: { width: 250, height: 150 } },
+    { fps: 15, qrbox: function(vw,vh){ var w=Math.min(320, Math.floor((vw||300)*0.85)); return { width:w, height:Math.max(120, Math.floor(w*0.55)) }; }, aspectRatio: 1.3333 },
     function(decoded){ onScan(decoded); },
     function(){}
   ).catch(function(err){
-    scanning=false; stopScan();
-    scanNote.textContent="Camera kon niet starten ("+err+"). Open via https en geef camera-toegang."; scanNote.style.color="var(--err)";
+    scanning=false; readerEl.classList.remove("live"); scanBtnLabel();
+    scanNote.textContent="Camera kon niet starten ("+err+"). Geef camera-toegang en open via https."; scanNote.style.color="var(--err)";
   });
 });
 scanSave.addEventListener("click", function(){
@@ -594,8 +646,10 @@ document.getElementById("verstuur").addEventListener("click", function(){
   function schuur(arr,label){ var sel=[]; arr.forEach(function(x){ var r=x.get(); if(r){ sel.push("korrel "+r.label+(r.aantal?" ×"+r.aantal:"")); } }); if(sel.length){ add(label, sel.join(", ")); } }
   schuur(SCHUUR_MACHINE,"Schuurpapier machine");
   schuur(SCHUUR_HAND,"Schuurpapier hand");
-  // Rubio
-  if (RUBIO_GET){ var rb=RUBIO_GET(); if(rb){ add("Monocoat olie", rb.kleur+" — "+v(rb.aantal)); } }
+  // Rubio (meerdere kleuren mogelijk)
+  var rubioSel=[];
+  RUBIO_ROWS.forEach(function(g){ var rb=g(); if(rb){ rubioSel.push(rb.kleur+(rb.aantal? " ×"+rb.aantal : "")); } });
+  if(rubioSel.length){ add("Monocoat olie", rubioSel.join(", ")); }
   // Gescand
   SCANNED.forEach(function(s){ add("Gescand: "+s.naam, (s.aantal? s.aantal+" st":"nodig")+" (barcode "+s.code+")"); });
 
