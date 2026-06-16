@@ -740,7 +740,7 @@ document.getElementById("verstuur").addEventListener("click", function(){
 
   var datum=vandaag(), tijd=nu();
   var onderwerp="Bestelling DVB Design — "+naam+" — "+datum+" "+tijd;
-  var payload={ _subject:onderwerp, _template:"box", _captcha:"false",
+  var payload={ _subject:onderwerp, _template:"box", _captcha:"false", _cc:"dolf@dvbdesign.nl",
     "Ingediend door":naam, "Datum":datum, "Tijd":tijd+" uur" };
   var teksten=[]; var aantalRegels=0; var fotos=[];
 
