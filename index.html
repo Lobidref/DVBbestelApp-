@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>DVB Design — Intern bestelformulier</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fjalla+One&family=Roboto+Slab:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<style>
+  :root {
+    --bg: #FAF9F6;          /* warm off-white */
+    --bg-2: #F2EFE9;        /* lichte sectie */
+    --card: #FFFFFF;        /* kaart */
+    --ink: #3D3B3C;         /* charcoal tekst (logo-kleur) */
+    --ink-soft: #6E6A66;    /* zachte tekst */
+    --line: #DAD4CB;        /* hairline rand */
+    --line-soft: #E7E2D9;
+    --wood: #A9794C;        /* warm hout-accent (krul) */
+    --wood-soft: #C39A6E;
+    --wood-bg: #F3E9DC;     /* lichte hout-tint achtergrond */
+    --ok: #5E7C57;
+    --err: #B4522E;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Roboto Slab', Georgia, serif;
+    font-weight: 400;
+    font-size: 16px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  /* Subtiele X-streep textuur, net als de site */
+  .bg-layer {
+    position: fixed; inset: 0; z-index: -1;
+    background:
+      radial-gradient(120% 70% at 50% -10%, rgba(169,121,76,0.06), transparent 60%),
+      linear-gradient(180deg, #FBFAF7 0%, var(--bg) 60%, #F6F3EE 100%);
+  }
+  .wrap { max-width: 600px; margin: 0 auto; padding: 26px 16px 60px; }
+
+  /* ---------- Header ---------- */
+  header { text-align: center; padding: 8px 0 4px; }
+  header .logo-img {
+    width: clamp(150px, 48%, 210px);
+    height: auto; display: block; margin: 0 auto;
+  }
+  header h1 {
+    font-family: 'Fjalla One', sans-serif;
+    font-weight: 400;
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    font-size: clamp(1.15rem, 5.2vw, 1.45rem);
+    color: var(--ink);
+    margin: 22px 0 4px;
+  }
+  header .subtitle {
+    font-family: 'Fjalla One', sans-serif;
+    letter-spacing: 2px; text-transform: uppercase;
+    font-size: 0.72rem; color: var(--wood);
+  }
+
+  /* X-divider */
+  .xdiv { display:flex; align-items:center; justify-content:center; gap:14px; margin:22px 0 24px; }
+  .xdiv::before, .xdiv::after { content:""; height:1px; background:var(--line); flex:1; max-width:200px; }
+  .xdiv svg { width:22px; height:22px; flex:none; }
+
+  .intro {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 14px 16px;
+    font-size: 0.95rem;
+    color: var(--ink-soft);
+    margin-bottom: 26px;
+  }
+
+  /* ---------- Categorie ---------- */
+  .cat { margin: 30px 0 8px; }
+  .cat-title {
+    font-family: 'Fjalla One', sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 2.5px;
+    font-size: 0.95rem;
+    color: var(--ink);
+    display: flex; align-items: center; gap: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--ink);
+  }
+  .cat-title .ic { width: 18px; height: 18px; flex:none; color: var(--wood); }
+  .subcat {
+    font-family: 'Fjalla One', sans-serif;
+    text-transform: uppercase; letter-spacing: 1.5px;
+    font-size: 0.78rem; color: var(--ink-soft);
+    margin: 16px 0 8px;
+  }
+
+  /* ---------- Item rij ---------- */
+  .item {
+    display: flex; align-items: center; gap: 12px;
+    background: var(--card);
+    border: 1px solid var(--line-soft);
+    border-left: 3px solid transparent;
+    border-radius: 4px;
+    padding: 12px 14px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: border-color .12s, background .12s;
+  }
+  .item.on { border-left-color: var(--wood); background: #FFFDFA; border-color: var(--line); }
+  .check {
+    width: 24px; height: 24px; flex: none; border-radius: 4px;
+    border: 1.5px solid var(--line); background: #fff;
+    display: grid; place-items: center; transition: .12s;
+  }
+  .item.on .check { background: var(--wood); border-color: var(--wood); }
+  .check svg { width: 15px; height: 15px; color: #fff; opacity: 0; transition: opacity .12s; }
+  .item.on .check svg { opacity: 1; }
+  .item .label { flex: 1; min-width: 0; }
+  .item .label .name { font-weight: 500; color: var(--ink); }
+  .item .label .unit { display:block; font-size: 0.78rem; color: var(--ink-soft); }
+  .qty {
+    width: 64px; flex: none; text-align: center;
+    font-family: 'Roboto Slab', serif; font-weight: 600; font-size: 1rem;
+    border: 1px solid var(--line); border-radius: 4px; padding: 8px 4px;
+    color: var(--ink); background: #fff;
+    opacity: .45; transition: opacity .12s;
+  }
+  .item.on .qty { opacity: 1; border-color: var(--wood-soft); }
+  .qty:focus { outline: 2px solid var(--wood-soft); outline-offset: 1px; }
+
+  /* ---------- Chips (schroeven / korrels) ---------- */
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; }
+  .chip {
+    position: relative;
+    display: inline-flex; align-items: center; gap: 6px;
+    border: 1px solid var(--line); border-radius: 999px;
+    background: #fff; color: var(--ink);
+    padding: 8px 14px; font-weight: 500; font-size: 0.92rem;
+    cursor: pointer; user-select: none; transition: .12s;
+  }
+  .chip.on { background: var(--wood); border-color: var(--wood); color: #fff; padding-right: 6px; }
+  .chip .cq {
+    display: none; width: 46px; text-align: center;
+    border: none; border-radius: 999px; padding: 5px 2px;
+    font-family: 'Roboto Slab', serif; font-weight: 700; font-size: 0.9rem;
+    background: #fff; color: var(--ink);
+  }
+  .chip.on .cq { display: inline-block; }
+  .chip .cq:focus { outline: 2px solid #fff; }
+  .grit-hint { font-size: 0.72rem; color: var(--ink-soft); margin: 0 0 6px; }
+
+  /* ---------- Velden ---------- */
+  .field { margin-top: 22px; }
+  .field > label {
+    display:block; font-family:'Fjalla One',sans-serif; letter-spacing:1px;
+    text-transform: uppercase; font-size: 0.8rem; color: var(--ink); margin-bottom: 8px;
+  }
+  .field .req { color: var(--wood); }
+  textarea, input[type=text], select {
+    width: 100%; border: 1px solid var(--line); border-radius: 4px;
+    padding: 12px 14px; font-family: 'Roboto Slab', serif; font-size: 1rem;
+    color: var(--ink); background: #fff;
+  }
+  textarea { min-height: 84px; resize: vertical; }
+  textarea::placeholder, input::placeholder { color: #A8A29A; }
+  textarea:focus, input[type=text]:focus, select:focus { outline: 2px solid var(--wood-soft); outline-offset: 1px; border-color: var(--wood-soft); }
+  select {
+    -webkit-appearance:none; appearance:none; cursor:pointer; padding-right: 40px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='9' viewBox='0 0 14 9'%3E%3Cpath d='M1 1l6 6 6-6' stroke='%23A9794C' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat:no-repeat; background-position: right 14px center;
+  }
+  .inline-color { display:flex; gap:10px; align-items:center; }
+  .inline-color .qty { opacity:1; }
+
+  /* ---------- Scanner ---------- */
+  .scan-section { margin-top: 30px; }
+  .scan-btn {
+    width: 100%; display:flex; align-items:center; justify-content:center; gap:10px;
+    background: var(--card); color: var(--ink);
+    border: 1.5px dashed var(--wood-soft); border-radius: 6px;
+    padding: 16px; font-family:'Fjalla One',sans-serif; letter-spacing:1.5px;
+    text-transform: uppercase; font-size: 0.85rem; cursor: pointer; transition:.12s;
+  }
+  .scan-btn:hover { background: var(--wood-bg); }
+  .scan-btn svg { width: 22px; height: 22px; color: var(--wood); }
+  #reader { margin-top: 14px; border-radius: 8px; overflow: hidden; }
+  #reader:empty { display:none; }
+  .scan-note { font-size: 0.78rem; color: var(--ink-soft); margin-top: 8px; }
+  .scan-form {
+    display:none; margin-top: 12px; background: var(--wood-bg);
+    border: 1px solid var(--wood-soft); border-radius: 6px; padding: 14px;
+  }
+  .scan-form.show { display:block; }
+  .scan-form .code { font-family:'Fjalla One',sans-serif; letter-spacing:1px; color: var(--wood); font-size: 0.8rem; }
+  .scan-form .row { display:flex; gap:10px; margin-top:10px; }
+  .scan-form input[type=text] { flex:1; }
+  .scan-form .save {
+    background: var(--ink); color:#fff; border:none; border-radius:4px; padding: 0 18px;
+    font-family:'Fjalla One',sans-serif; letter-spacing:1px; cursor:pointer; font-size:0.85rem;
+  }
+  .scanned-item {
+    display:flex; align-items:center; gap:10px; background:#fff;
+    border:1px solid var(--line); border-left:3px solid var(--wood); border-radius:4px;
+    padding:10px 12px; margin-top:8px;
+  }
+  .scanned-item .si-name { flex:1; font-weight:500; }
+  .scanned-item .si-name small { display:block; color:var(--ink-soft); font-size:0.72rem; font-family:'Fjalla One',sans-serif; letter-spacing:1px; }
+  .scanned-item .rm { background:none; border:none; color:var(--err); font-size:1.3rem; cursor:pointer; line-height:1; padding:0 4px; }
+
+  /* ---------- Verstuur ---------- */
+  .submit-btn {
+    width:100%; margin-top: 30px; padding: 18px;
+    background: var(--ink); color: #fff; border:none; border-radius:6px;
+    font-family:'Fjalla One',sans-serif; text-transform:uppercase; letter-spacing:2px;
+    font-size: 1.05rem; cursor: pointer; transition: background .12s;
+  }
+  .submit-btn:hover { background:#2c2a2b; }
+  .submit-btn:active { transform: translateY(1px); }
+  .submit-btn:disabled { opacity:.55; cursor:default; }
+  .error-msg { color: var(--err); font-weight:500; font-size:0.88rem; margin-top:8px; display:none; }
+  .confirm {
+    display:none; margin-top: 16px; padding: 14px 16px; border-radius:6px;
+    font-weight:500; text-align:center; font-size:0.95rem;
+  }
+  .confirm.busy { background:var(--wood-bg); border:1px solid var(--wood-soft); color:var(--wood); display:block; }
+  .confirm.ok { background:#EEF3EA; border:1px solid var(--ok); color:var(--ok); display:block; }
+  .confirm.err { background:#F7E9E3; border:1px solid var(--err); color:var(--err); display:block; }
+  .confirm a { color: inherit; }
+
+  footer {
+    text-align:center; margin-top: 36px; font-family:'Fjalla One',sans-serif;
+    letter-spacing:1.5px; text-transform:uppercase; font-size:0.7rem; color:var(--ink-soft);
+  }
+  @media (max-width: 380px) {
+    body { font-size: 15px; }
+    .wrap { padding: 22px 12px 48px; }
+    .qty { width: 56px; }
+  }
+</style>
+</head>
+<body>
+<div class="bg-layer"></div>
+<div class="wrap">
+  <header>
+    <img class="logo-img" src="data:image/png;base64,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" alt="DVB Design — Interieurbouw & Meubelmakerij">
+    <h1>Intern bestelformulier</h1>
+    <div class="subtitle">Voorraad &amp; inkoop</div>
+  </header>
+
+  <div class="xdiv">
+    <svg viewBox="0 0 40 40" fill="none" stroke="#A9794C" stroke-width="1.4"><path d="M5 5l30 30M35 5L5 35"/></svg>
+  </div>
+
+  <div class="intro">
+    Vink aan wat besteld moet worden en vul eventueel een aantal in. Geen aantal? Dan
+    noteren we &lsquo;nodig&rsquo;. Scan onderaan een barcode voor producten die niet in de lijst
+    staan. Kies je naam en druk op <strong>Verstuur bestelling</strong> &mdash; de bestelling
+    gaat direct per e-mail naar de inkoop.
+  </div>
+
+  <div id="lijst"></div>
+
+  <!-- Scanner -->
+  <div class="scan-section">
+    <div class="cat-title" style="margin-bottom:14px;">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 5v14M7 5v14M11 5v14M14 5v14M18 5v14M21 5v14" stroke-linecap="round"/></svg>
+      Barcode scannen
+    </div>
+    <button type="button" class="scan-btn" id="scanBtn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3M21 14v.01M21 21v-3M17 21h.01M14 21h.01"/></svg>
+      Scan een barcode
+    </button>
+    <div id="reader"></div>
+    <div class="scan-form" id="scanForm">
+      <div class="code" id="scanCode">CODE</div>
+      <div class="row">
+        <input type="text" id="scanName" placeholder="Productnaam (wordt onthouden)">
+        <input type="number" class="qty" style="opacity:1" id="scanQty" inputmode="numeric" min="1" placeholder="#">
+      </div>
+      <div class="row">
+        <button type="button" class="save" id="scanSave">Toevoegen aan bestelling</button>
+      </div>
+    </div>
+    <div class="scanned-list" id="scannedList"></div>
+    <div class="scan-note" id="scanNote">Camera-scannen werkt alleen via een beveiligde (https) link, niet bij een los geopend bestand.</div>
+  </div>
+
+  <!-- Opmerkingen -->
+  <div class="field">
+    <label for="opmerkingen">Overige opmerkingen / extra producten</label>
+    <textarea id="opmerkingen" placeholder="Bijv. extra materiaal, een merk/type, of een opmerking voor de inkoop&hellip;"></textarea>
+  </div>
+
+  <!-- Naam -->
+  <div class="field">
+    <label for="naam">Ingediend door <span class="req">*</span></label>
+    <select id="naam">
+      <option value="" selected disabled hidden>Kies je naam&hellip;</option>
+      <option value="Dolf">Dolf</option>
+      <option value="Roan">Roan</option>
+      <option value="Mark">Mark</option>
+      <option value="Duncan">Duncan</option>
+      <option value="Sophie">Sophie</option>
+      <option value="__anders">Anders, namelijk&hellip;</option>
+    </select>
+    <input type="text" id="naamAnders" placeholder="Vul je naam in" autocomplete="name" style="display:none; margin-top:10px;">
+    <div class="error-msg" id="naamError">Kies of vul je naam in voordat je de bestelling verstuurt.</div>
+  </div>
+
+  <button class="submit-btn" id="verstuur">Verstuur bestelling</button>
+  <div class="confirm" id="confirm"></div>
+
+  <footer>DVB Design &middot; Interieurbouw &amp; Meubelmakerij &middot; De Lier</footer>
+</div>
+
+<script>
+/* ====== Ontvanger ====== */
+var ONTVANGER = "info@ferdibol.nl";
+
+/* ====== Bestellijst data ====== */
+var SCHROEF_LENGTES = {
+  "3 mm":   [15,20,25,30,35,40],
+  "3,5 mm": [15,20,25,30,35,40,45],
+  "4 mm":   [15,20,25,30,35,40,45,50],
+  "5 mm":   [15,20,25,30,35,40,45,50,55,60,70]
+};
+var KORRELS = [80,100,120,150,180,220];
+var RUBIO_KLEUREN = ["Pure","Natural","Antique Bronze","Aqua","Ash Grey","Biscuit","Black","Bourbon","Castle Brown","Charcoal","Cherry Coral","Chocolate","Cornsilk","Cotton White","Dark Oak","Gris Belge","Havanna","Ice Brown","Mahogany","Mist","Mud","Oak","Olive","Oyster","Pine","Savanna","Silver Grey","Sky Grey","Slate Grey","Smoke","Smoked Oak","Stone","Super White","Titanium Grey","Vanilla","Walnut","White"];
+
+var CATEGORIEEN = [
+  { titel: "Algemeen / Verbruik", icon: "box", items: [
+    { naam: "WC papier" }, { naam: "Koffie" }, { naam: "Poetsdoeken" }
+  ]},
+  { titel: "Bevestigingsmiddelen", icon: "screw", schroeven: true },
+  { titel: "Kast & Inbouw onderdelen", icon: "cabinet", items: [
+    { naam: "Plankendrager" },
+    { naam: "Stelpoten 60 mm" }, { naam: "Stelpoten 100 mm" }, { naam: "Stelpoten 120 mm" },
+    { naam: "Onderplaat stelpoten" },
+    { naam: "Kastroede RVS 30 mm" }, { naam: "Kastroede dopjes 30 mm" },
+    { naam: "Scharnieren opliggend" }, { naam: "Scharnieren half opliggend" }, { naam: "Scharnieren inliggend" },
+    { naam: "Scharnier plaatjes recht" }, { naam: "Scharnier plaatjes kruis" },
+    { naam: "Push to open stiften" }
+  ]},
+  { titel: "Kit & Afdichtmiddelen", icon: "tube", items: [
+    { naam: "Acrylaat kit", eenheid: "tube" },
+    { naam: "Hitec kit", eenheid: "tube" },
+    { naam: "C60 kit", eenheid: "tube" },
+    { naam: "Transparant grijs siliconen kit", eenheid: "tube" }
+  ]},
+  { titel: "Schilderen & Afwerking", icon: "brush", tape: true, schuur: true },
+  { titel: "Verf & Toebehoren", icon: "paint", rubio: true, items: [
+    { naam: "Inzetbakjes verf" }, { naam: "Mengbekertjes" }, { naam: "Rolletjes" }, { naam: "Verfbakjes" }
+  ]}
+];
+
+var ICONS = {
+  box:'<path d="M3 7l9-4 9 4v10l-9 4-9-4z"/><path d="M3 7l9 4 9-4M12 11v10"/>',
+  screw:'<path d="M12 2v6M9 5h6M12 8l-2 2 2 11 2-11z" stroke-linejoin="round"/>',
+  cabinet:'<rect x="4" y="3" width="16" height="18" rx="1"/><path d="M12 3v18M9 7h.01M15 7h.01"/>',
+  tube:'<path d="M7 8h10v11a2 2 0 01-2 2H9a2 2 0 01-2-2z"/><path d="M9 8V5h6v3M11 3h2"/>',
+  brush:'<path d="M3 21c2 0 3-1 3-3 0-1.5 1-2.5 2.5-2.5S11 14 11 12"/><path d="M14 4l6 6-7 5-4-4z"/>',
+  paint:'<rect x="4" y="3" width="14" height="8" rx="2"/><path d="M18 7h2a1 1 0 011 1v3a2 2 0 01-2 2h-5v3M11 19a2 2 0 11-4 0c0-1.5 2-4 2-4s2 2.5 2 4z"/>'
+};
+function svg(p){ return '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">'+p+'</svg>'; }
+var CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-11"/></svg>';
+
+var ITEM_INDEX = []; // {key, type:'item', cat, get()} voor payload-opbouw
+var container = document.getElementById("lijst");
+
+function maakItem(naam, eenheid, key){
+  var row = document.createElement("div");
+  row.className = "item";
+  row.innerHTML =
+    '<div class="check">'+CHECK+'</div>' +
+    '<div class="label"><span class="name">'+naam+'</span>'+(eenheid?'<span class="unit">'+eenheid+'</span>':'')+'</div>' +
+    '<input type="number" class="qty" inputmode="numeric" min="1" placeholder="#">';
+  var qty = row.querySelector(".qty");
+  function toggle(on){ row.classList.toggle("on", on); }
+  row.addEventListener("click", function(e){
+    if (e.target === qty) return;
+    var on = !row.classList.contains("on");
+    toggle(on);
+    if (on) { try{ qty.focus(); }catch(_){} }
+  });
+  qty.addEventListener("click", function(e){ e.stopPropagation(); });
+  qty.addEventListener("input", function(){ if (qty.value) toggle(true); });
+  ITEM_INDEX.push({ naam: naam, eenheid: eenheid||"", get: function(){
+    if (!row.classList.contains("on")) return null;
+    var v = parseInt(qty.value,10);
+    return { aantal: (!isNaN(v)&&v>0)? v : null };
+  }});
+  return row;
+}
+
+function maakChips(parent, labels, suffix, groep){
+  var wrap = document.createElement("div"); wrap.className="chips";
+  labels.forEach(function(l){
+    var chip = document.createElement("label"); chip.className="chip";
+    chip.innerHTML = '<span>'+l+(suffix||'')+'</span><input type="number" class="cq" inputmode="numeric" min="1" placeholder="#">';
+    var cq = chip.querySelector(".cq");
+    chip.addEventListener("click", function(e){
+      if (e.target === cq) return;
+      var on = !chip.classList.contains("on");
+      chip.classList.toggle("on", on);
+      if (on) setTimeout(function(){ try{cq.focus();}catch(_){} },10);
+    });
+    cq.addEventListener("click", function(e){ e.stopPropagation(); });
+    cq.addEventListener("input", function(){ if(cq.value) chip.classList.add("on"); });
+    wrap.appendChild(chip);
+    groep.push({ label: l+(suffix||''), get: function(){
+      if(!chip.classList.contains("on")) return null;
+      var v=parseInt(cq.value,10); return {label:l+(suffix||''), aantal:(!isNaN(v)&&v>0)?v:null};
+    }});
+  });
+  parent.appendChild(wrap);
+}
+
+var SCHROEF_GROEP = [];   // {dia, items:[...]}
+var SCHUUR_MACHINE = [];
+var SCHUUR_HAND = [];
+var RUBIO_GET = null;
+
+CATEGORIEEN.forEach(function(cat){
+  var sec = document.createElement("div"); sec.className="cat";
+  var t = document.createElement("div"); t.className="cat-title";
+  t.innerHTML = svg(ICONS[cat.icon]||'') + cat.titel;
+  sec.appendChild(t);
+
+  if (cat.schroeven){
+    var hint=document.createElement("p"); hint.className="grit-hint";
+    hint.textContent="Kies diameter en lengte(s). Tik een maat aan en vul eventueel een aantal in.";
+    sec.appendChild(hint);
+    Object.keys(SCHROEF_LENGTES).forEach(function(dia){
+      var sc=document.createElement("div"); sc.className="subcat"; sc.textContent="Schroeven "+dia; sec.appendChild(sc);
+      var groep=[]; maakChips(sec, SCHROEF_LENGTES[dia], " mm", groep);
+      SCHROEF_GROEP.push({ dia: dia, groep: groep });
+    });
+  }
+
+  if (cat.tape){
+    var st=document.createElement("div"); st.className="subcat"; st.textContent="Tape"; sec.appendChild(st);
+    sec.appendChild(maakItem("Schildertape 30 mm breed"));
+    sec.appendChild(maakItem("Schildertape geel"));
+  }
+  if (cat.schuur){
+    var sm=document.createElement("div"); sm.className="subcat"; sm.textContent="Schuurpapier machine — korrel"; sec.appendChild(sm);
+    maakChips(sec, KORRELS, "", SCHUUR_MACHINE);
+    var sh=document.createElement("div"); sh.className="subcat"; sh.textContent="Schuurpapier hand — korrel"; sec.appendChild(sh);
+    maakChips(sec, KORRELS, "", SCHUUR_HAND);
+  }
+
+  if (cat.rubio){
+    var rf=document.createElement("div"); rf.className="subcat"; rf.textContent="Monocoat olie"; sec.appendChild(rf);
+    var ic=document.createElement("div"); ic.className="inline-color";
+    var sel=document.createElement("select");
+    sel.innerHTML='<option value="" selected disabled hidden>Kies een kleur…</option>'+
+      RUBIO_KLEUREN.map(function(k){return '<option value="'+k+'">'+k+'</option>';}).join('')+
+      '<option value="__anders">Anders, namelijk…</option>';
+    var rq=document.createElement("input"); rq.type="number"; rq.className="qty"; rq.min="1"; rq.placeholder="#"; rq.inputMode="numeric";
+    ic.appendChild(sel); ic.appendChild(rq); sec.appendChild(ic);
+    var rAnders=document.createElement("input"); rAnders.type="text"; rAnders.placeholder="Welke kleur?"; rAnders.style.display="none"; rAnders.style.marginTop="10px";
+    sec.appendChild(rAnders);
+    sel.addEventListener("change", function(){ rAnders.style.display = sel.value==="__anders" ? "block":"none"; });
+    RUBIO_GET = function(){
+      var kleur = sel.value==="__anders" ? rAnders.value.trim() : sel.value;
+      if(!kleur || kleur==="__anders") return null;
+      var v=parseInt(rq.value,10);
+      return { kleur: kleur, aantal:(!isNaN(v)&&v>0)?v:null };
+    };
+  }
+
+  if (cat.items){
+    cat.items.forEach(function(it){ sec.appendChild(maakItem(it.naam, it.eenheid)); });
+  }
+  container.appendChild(sec);
+});
+
+/* ====== Barcode scanner ====== */
+var SCANNED = [];           // {code, naam, aantal}
+var MAP_KEY = "dvb_barcodes";
+function loadMap(){ try{ return JSON.parse(localStorage.getItem(MAP_KEY)||"{}"); }catch(_){ return {}; } }
+function saveMap(m){ try{ localStorage.setItem(MAP_KEY, JSON.stringify(m)); }catch(_){ } }
+
+var scanBtn=document.getElementById("scanBtn");
+var readerEl=document.getElementById("reader");
+var scanForm=document.getElementById("scanForm");
+var scanCode=document.getElementById("scanCode");
+var scanName=document.getElementById("scanName");
+var scanQty=document.getElementById("scanQty");
+var scanSave=document.getElementById("scanSave");
+var scannedList=document.getElementById("scannedList");
+var scanNote=document.getElementById("scanNote");
+var html5qr=null, scanning=false, lastCode="";
+
+function stopScan(){
+  if (html5qr && scanning){ html5qr.stop().then(function(){ readerEl.innerHTML=""; }).catch(function(){ readerEl.innerHTML=""; }); }
+  scanning=false; scanBtn.textContent="";
+  scanBtn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3M21 14v.01M21 21v-3M17 21h.01M14 21h.01"/></svg> Scan een barcode';
+}
+function onScan(code){
+  lastCode = code;
+  stopScan();
+  scanCode.textContent = "Code: " + code;
+  var m = loadMap();
+  scanName.value = m[code] || "";
+  scanQty.value = "";
+  scanForm.classList.add("show");
+  setTimeout(function(){ (m[code]? scanQty : scanName).focus(); }, 50);
+}
+scanBtn.addEventListener("click", function(){
+  if (typeof Html5Qrcode === "undefined"){ scanNote.textContent="Scanner kon niet laden (geen internet?). Gebruik het opmerkingenveld."; scanNote.style.color="var(--err)"; return; }
+  if (scanning){ stopScan(); return; }
+  if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)){
+    scanNote.textContent="Camera niet beschikbaar. Open de app via een https-link om te kunnen scannen."; scanNote.style.color="var(--err)"; return;
+  }
+  html5qr = html5qr || new Html5Qrcode("reader");
+  scanning = true;
+  scanBtn.innerHTML = "✕ Stop scannen";
+  html5qr.start({ facingMode: "environment" },
+    { fps: 10, qrbox: { width: 250, height: 150 } },
+    function(decoded){ onScan(decoded); },
+    function(){}
+  ).catch(function(err){
+    scanning=false; stopScan();
+    scanNote.textContent="Camera kon niet starten ("+err+"). Open via https en geef camera-toegang."; scanNote.style.color="var(--err)";
+  });
+});
+scanSave.addEventListener("click", function(){
+  var naam = scanName.value.trim();
+  if (!naam){ scanName.focus(); scanName.style.borderColor="var(--err)"; return; }
+  scanName.style.borderColor="";
+  var v = parseInt(scanQty.value,10);
+  var m = loadMap(); m[lastCode]=naam; saveMap(m);
+  SCANNED.push({ code:lastCode, naam:naam, aantal:(!isNaN(v)&&v>0)?v:null });
+  renderScanned();
+  scanForm.classList.remove("show");
+});
+function renderScanned(){
+  scannedList.innerHTML="";
+  SCANNED.forEach(function(s,i){
+    var d=document.createElement("div"); d.className="scanned-item";
+    d.innerHTML='<div class="si-name">'+s.naam+(s.aantal?' — '+s.aantal+'×':'')+'<small>barcode '+s.code+'</small></div><button type="button" class="rm" aria-label="Verwijder">&times;</button>';
+    d.querySelector(".rm").addEventListener("click", function(){ SCANNED.splice(i,1); renderScanned(); });
+    scannedList.appendChild(d);
+  });
+}
+
+/* ====== Naam ====== */
+var naamSelect=document.getElementById("naam");
+var naamAnders=document.getElementById("naamAnders");
+naamSelect.addEventListener("change", function(){
+  naamAnders.style.display = naamSelect.value==="__anders" ? "block":"none";
+  if (naamSelect.value==="__anders") naamAnders.focus();
+});
+
+/* ====== Datum/tijd ====== */
+function vandaag(){ var d=new Date(); return String(d.getDate()).padStart(2,"0")+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+d.getFullYear(); }
+function nu(){ var d=new Date(); return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0"); }
+
+/* ====== Versturen ====== */
+document.getElementById("verstuur").addEventListener("click", function(){
+  var err=document.getElementById("naamError");
+  var naam, focusEl;
+  if (naamSelect.value==="__anders"){ naam=naamAnders.value.trim(); focusEl=naamAnders; }
+  else { naam=naamSelect.value.trim(); focusEl=naamSelect; }
+  if (!naam){ err.style.display="block"; focusEl.focus(); focusEl.scrollIntoView({behavior:"smooth",block:"center"}); return; }
+  err.style.display="none";
+
+  var datum=vandaag(), tijd=nu();
+  var onderwerp="Bestelling DVB Design — "+naam+" — "+datum+" "+tijd;
+  var payload={ _subject:onderwerp, _template:"table", _captcha:"false",
+    "Ingediend door":naam, "Datum":datum, "Tijd":tijd+" uur" };
+  var teksten=[]; var aantalRegels=0;
+
+  function add(key,val){ payload[key]=val; teksten.push("- "+key+": "+val); aantalRegels++; }
+  function v(a){ return a? a+" st" : "nodig"; }
+
+  // Losse items
+  ITEM_INDEX.forEach(function(it){ var r=it.get(); if(r){ add(it.naam+(it.eenheid?" ("+it.eenheid+")":""), v(r.aantal)); } });
+
+  // Schroeven
+  SCHROEF_GROEP.forEach(function(g){
+    var sel=[]; g.groep.forEach(function(x){ var r=x.get(); if(r){ sel.push(r.label+(r.aantal?" ×"+r.aantal:"")); } });
+    if(sel.length){ add("Schroeven "+g.dia, sel.join(", ")); }
+  });
+  // Schuurpapier
+  function schuur(arr,label){ var sel=[]; arr.forEach(function(x){ var r=x.get(); if(r){ sel.push("korrel "+r.label+(r.aantal?" ×"+r.aantal:"")); } }); if(sel.length){ add(label, sel.join(", ")); } }
+  schuur(SCHUUR_MACHINE,"Schuurpapier machine");
+  schuur(SCHUUR_HAND,"Schuurpapier hand");
+  // Rubio
+  if (RUBIO_GET){ var rb=RUBIO_GET(); if(rb){ add("Monocoat olie", rb.kleur+" — "+v(rb.aantal)); } }
+  // Gescand
+  SCANNED.forEach(function(s){ add("Gescand: "+s.naam, (s.aantal? s.aantal+" st":"nodig")+" (barcode "+s.code+")"); });
+
+  var opmerkingen=document.getElementById("opmerkingen").value.trim();
+  if (opmerkingen){ payload["Opmerkingen / extra"]=opmerkingen; }
+  if (aantalRegels===0 && !opmerkingen){ payload["Let op"]="Geen producten geselecteerd."; }
+
+  var box=document.getElementById("confirm");
+  var btn=document.getElementById("verstuur");
+  box.className="confirm busy"; box.textContent="Bestelling wordt verstuurd…"; btn.disabled=true;
+
+  fetch("https://formsubmit.co/ajax/"+ONTVANGER, {
+    method:"POST",
+    headers:{ "Content-Type":"application/json", "Accept":"application/json" },
+    body: JSON.stringify(payload)
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(){
+    box.className="confirm ok"; box.textContent="Bestelling verstuurd! Bedankt, "+naam+"."; btn.disabled=false;
+  })
+  .catch(function(){
+    btn.disabled=false; box.className="confirm err";
+    var body="Bestelling DVB Design\nIngediend door: "+naam+"\nDatum: "+datum+"\nTijd: "+tijd+" uur\n\n"+
+             (teksten.length? teksten.join("\n") : "Geen producten geselecteerd.")+
+             (opmerkingen? "\n\nOpmerkingen / extra:\n"+opmerkingen : "");
+    var mailUrl="mailto:"+ONTVANGER+"?subject="+encodeURIComponent(onderwerp)+"&body="+encodeURIComponent(body);
+    box.innerHTML="Direct versturen lukte niet (geen internet?). <a href='"+mailUrl+"'>Tik hier om via je mail-app te versturen.</a>";
+  });
+});
+</script>
+</body>
+</html>
