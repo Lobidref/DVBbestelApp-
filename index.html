@@ -740,7 +740,7 @@ document.getElementById("verstuur").addEventListener("click", function(){
 
   var datum=vandaag(), tijd=nu();
   var onderwerp="Bestelling DVB Design — "+naam+" — "+datum+" "+tijd;
-  var payload={ _subject:onderwerp, _template:"table", _captcha:"false",
+  var payload={ _subject:onderwerp, _template:"box", _captcha:"false",
     "Ingediend door":naam, "Datum":datum, "Tijd":tijd+" uur" };
   var teksten=[]; var aantalRegels=0; var fotos=[];
 
@@ -764,10 +764,11 @@ document.getElementById("verstuur").addEventListener("click", function(){
   RUBIO_ROWS.forEach(function(g){ var rb=g(); if(rb){ rubioSel.push(rb.kleur+(rb.aantal? " ×"+rb.aantal : "")); } });
   if(rubioSel.length){ add("Monocoat olie", rubioSel.join(", ")); }
   // Gescand
-  SCANNED.forEach(function(s){
-    var val=(s.aantal? s.aantal+" st":"nodig")+" (barcode "+s.code+")";
+  SCANNED.forEach(function(s, idx){
+    var val = s.naam + " — " + (s.aantal? s.aantal+" st" : "nodig") + " (barcode " + s.code + ")";
     if(s.photo && s.photo.blob){ fotos.push({ name:"foto-"+(fotos.length+1)+".jpg", blob:s.photo.blob }); val+=" — foto bijgevoegd"; }
-    add("Gescand: "+s.naam, val);
+    var key = "Gescand product" + (SCANNED.length>1 ? " "+(idx+1) : "");
+    add(key, val);
   });
 
   var opmerkingen=document.getElementById("opmerkingen").value.trim();
@@ -789,16 +790,34 @@ document.getElementById("verstuur").addEventListener("click", function(){
     box.innerHTML="Direct versturen lukte niet (geen internet?). <a href='"+mailUrl+"'>Tik hier om via je mail-app te versturen.</a>";
   }
 
-  var verzoek;
   if (fotos.length){
-    var fd=new FormData();
-    Object.keys(payload).forEach(function(k){ fd.append(k, payload[k]); });
-    fotos.forEach(function(ft){ fd.append(ft.name, ft.blob, ft.name); });
-    verzoek=fetch("https://formsubmit.co/ajax/"+ONTVANGER, { method:"POST", headers:{ "Accept":"application/json" }, body: fd });
+    // Bijlagen werken alleen via een echte multipart-form (de AJAX-route negeert bijlagen).
+    // Daarom posten we naar het normale FormSubmit-endpoint via een verborgen formulier
+    // dat naar een onzichtbare iframe stuurt, zodat de pagina blijft staan.
+    var iframe=document.createElement("iframe");
+    iframe.name="fb_"+Date.now(); iframe.style.display="none"; document.body.appendChild(iframe);
+    var form=document.createElement("form");
+    form.action="https://formsubmit.co/"+ONTVANGER; form.method="POST";
+    form.enctype="multipart/form-data"; form.target=iframe.name; form.style.display="none";
+    Object.keys(payload).forEach(function(k){
+      var inp=document.createElement("input"); inp.type="hidden"; inp.name=k; inp.value=payload[k]; form.appendChild(inp);
+    });
+    fotos.forEach(function(ft){
+      var fi=document.createElement("input"); fi.type="file"; fi.name=ft.name;
+      try{ var dt=new DataTransfer(); dt.items.add(new File([ft.blob], ft.name, {type:"image/jpeg"})); fi.files=dt.files; }catch(e){}
+      form.appendChild(fi);
+    });
+    document.body.appendChild(form);
+    var klaar=false, ingediend=false;
+    function afronden(){ if(klaar) return; klaar=true; gelukt(); setTimeout(function(){ try{ form.remove(); iframe.remove(); }catch(_){ } }, 1500); }
+    iframe.addEventListener("load", function(){ if(ingediend) afronden(); });
+    ingediend=true;
+    try{ form.submit(); }catch(e){ mislukt(); return; }
+    setTimeout(afronden, 7000);
   } else {
-    verzoek=fetch("https://formsubmit.co/ajax/"+ONTVANGER, { method:"POST", headers:{ "Content-Type":"application/json", "Accept":"application/json" }, body: JSON.stringify(payload) });
+    fetch("https://formsubmit.co/ajax/"+ONTVANGER, { method:"POST", headers:{ "Content-Type":"application/json", "Accept":"application/json" }, body: JSON.stringify(payload) })
+      .then(function(r){ return r.json(); }).then(gelukt).catch(mislukt);
   }
-  verzoek.then(function(r){ return r.json(); }).then(gelukt).catch(mislukt);
 });
 </script>
 </body>
