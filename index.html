@@ -197,6 +197,7 @@
     text-transform: uppercase; font-size: 0.85rem; cursor: pointer; transition:.12s;
   }
   .scan-btn:hover { background: var(--wood-bg); }
+  .scan-btn.secondary { margin-top:10px; border-style:solid; border-color:var(--line); }
   .scan-btn svg { width: 22px; height: 22px; color: var(--wood); }
   #reader { display:none; margin-top: 14px; border-radius: 10px; overflow: hidden; background:#000; }
   #reader.live { display:block; min-height: 220px; }
@@ -285,6 +286,10 @@
     <button type="button" class="scan-btn" id="scanBtn">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3M21 14v.01M21 21v-3M17 21h.01M14 21h.01"/></svg>
       Scan een barcode
+    </button>
+    <button type="button" class="scan-btn secondary" id="addManualBtn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 8.5A1.5 1.5 0 014.5 7h2l1.2-1.6a1 1 0 01.8-.4h7a1 1 0 01.8.4L17.5 7h2A1.5 1.5 0 0121 8.5v9A1.5 1.5 0 0119.5 19h-15A1.5 1.5 0 013 17.5z"/><circle cx="12" cy="12.5" r="3.2"/></svg>
+      Product zonder barcode toevoegen
     </button>
     <div id="reader"></div>
     <div class="scan-form" id="scanForm">
@@ -608,6 +613,18 @@ function lookupProduct(code){
   }
   return next();
 }
+var addManualBtn=document.getElementById("addManualBtn");
+addManualBtn.addEventListener("click", function(){
+  if (scanning) stopScan();
+  lastCode="";
+  scanPhotoReset();
+  scanName.value=""; scanQty.value="1";
+  scanCode.textContent="Zonder barcode";
+  scanStatus.textContent="Vul de naam in en/of voeg een foto toe."; scanStatus.style.color="var(--ink-soft)";
+  scanForm.classList.add("show");
+  try{ scanForm.scrollIntoView({behavior:"smooth", block:"center"}); }catch(_){}
+  setTimeout(function(){ try{ scanName.focus(); }catch(_){} }, 60);
+});
 scanPhotoBtn.addEventListener("click", function(){ scanPhotoInput.click(); });
 scanPhotoInput.addEventListener("change", function(){
   var file=scanPhotoInput.files && scanPhotoInput.files[0];
@@ -687,8 +704,8 @@ scanSave.addEventListener("click", function(){
   if (!naam && !pendingPhoto){ scanName.focus(); scanName.style.borderColor="var(--err)"; return; }
   scanName.style.borderColor="";
   var v = parseInt(scanQty.value,10);
-  var m = loadMap(); if(naam){ m[lastCode]=naam; saveMap(m); }
-  SCANNED.push({ code:lastCode, naam: naam || "Gescand product", aantal:(!isNaN(v)&&v>0)?v:null, photo: pendingPhoto });
+  var m = loadMap(); if(naam && lastCode){ m[lastCode]=naam; saveMap(m); }
+  SCANNED.push({ code:lastCode, naam: naam || (lastCode? "Gescand product" : "Toegevoegd product"), aantal:(!isNaN(v)&&v>0)?v:null, photo: pendingPhoto });
   renderScanned();
   scanForm.classList.remove("show");
   scanPhotoReset();
@@ -698,7 +715,7 @@ function renderScanned(){
   SCANNED.forEach(function(s,i){
     var d=document.createElement("div"); d.className="scanned-item";
     d.innerHTML=(s.photo? '<img class="si-thumb" src="'+s.photo.dataURL+'" alt="">':'')+
-      '<div class="si-name">'+s.naam+(s.aantal?' — '+s.aantal+'×':'')+(s.photo?' \uD83D\uDCF7':'')+'<small>barcode '+s.code+'</small></div>'+
+      '<div class="si-name">'+s.naam+(s.aantal?' — '+s.aantal+'×':'')+(s.photo?' \uD83D\uDCF7':'')+'<small>'+(s.code? 'barcode '+s.code : 'zonder barcode')+'</small></div>'+
       '<button type="button" class="rm" aria-label="Verwijder">&times;</button>';
     d.querySelector(".rm").addEventListener("click", function(){ SCANNED.splice(i,1); renderScanned(); });
     scannedList.appendChild(d);
@@ -727,15 +744,16 @@ document.getElementById("verstuur").addEventListener("click", function(){
   err.style.display="none";
 
   // Openstaande scan automatisch meenemen (ook als 'Toevoegen' niet is aangetikt)
-  if (scanForm.classList.contains("show") && lastCode){
+  if (scanForm.classList.contains("show") && (lastCode || scanName.value.trim() || pendingPhoto)){
     var pn=scanName.value.trim();
     var pv=parseInt(scanQty.value,10);
     var dubbel=SCANNED.some(function(z){ return z.code===lastCode && z.naam===(pn||""); });
     if(!dubbel){
-      var mm=loadMap(); if(pn){ mm[lastCode]=pn; saveMap(mm); }
-      SCANNED.push({ code:lastCode, naam: pn || (loadMap()[lastCode] || "Gescand product"), aantal:(!isNaN(pv)&&pv>0)?pv:null, photo: pendingPhoto });
+      var mm=loadMap(); if(pn && lastCode){ mm[lastCode]=pn; saveMap(mm); }
+      var valnaam = pn || (lastCode && loadMap()[lastCode]) || (lastCode? "Gescand product" : "Toegevoegd product");
+      SCANNED.push({ code:lastCode, naam: valnaam, aantal:(!isNaN(pv)&&pv>0)?pv:null, photo: pendingPhoto });
     }
-    scanForm.classList.remove("show"); renderScanned();
+    scanForm.classList.remove("show"); renderScanned(); scanPhotoReset();
   }
 
   var datum=vandaag(), tijd=nu();
@@ -765,9 +783,10 @@ document.getElementById("verstuur").addEventListener("click", function(){
   if(rubioSel.length){ add("Monocoat olie", rubioSel.join(", ")); }
   // Gescand
   SCANNED.forEach(function(s, idx){
-    var val = s.naam + " — " + (s.aantal? s.aantal+" st" : "nodig") + " (barcode " + s.code + ")";
+    var heeftCode = !!(s.code && String(s.code).trim());
+    var val = s.naam + " — " + (s.aantal? s.aantal+" st" : "nodig") + (heeftCode ? " (barcode " + s.code + ")" : "");
     if(s.photo && s.photo.blob){ fotos.push({ name:"foto-"+(fotos.length+1)+".jpg", blob:s.photo.blob }); val+=" — foto bijgevoegd"; }
-    var key = "Gescand product" + (SCANNED.length>1 ? " "+(idx+1) : "");
+    var key = (heeftCode ? "Gescand product" : "Toegevoegd product") + (SCANNED.length>1 ? " "+(idx+1) : "");
     add(key, val);
   });
 
